@@ -20,26 +20,45 @@
 using namespace std;
 using namespace Eigen;
 
+///random_complex_scene/global_map [sensor_msgs/PointCloud2]
 ros::Publisher _all_map_pub;
 
 int _obs_num, _cir_num;
-double _x_size, _y_size, _z_size, _init_x, _init_y, _resolution, _sense_rate;
+
+// 地图大小参数
+double _x_size, _y_size, _z_size；
+
+// 起始点状态（0,0）
+double  _init_x, _init_y, _resolution;
+
+// 构造Rate 周期发布
+double _sense_rate;
+
+// 开始发布地图的标记
+bool _has_map = false;
+
+// l: lower_bound, h: higher_bound
+// x
+// y
+// w   宽度， 竖直障碍物的宽度
+// h   高度
+// w_c 圆的宽度，圆半径
 double _x_l, _x_h, _y_l, _y_h, _w_l, _w_h, _h_l, _h_h, _w_c_l, _w_c_h;
 
-bool _has_map  = false;
-
+// 地图存储, ros+pcl
 sensor_msgs::PointCloud2 globalMap_pcd;
 pcl::PointCloud<pcl::PointXYZ> cloudMap;
 
+// ?
 pcl::search::KdTree<pcl::PointXYZ> kdtreeMap;
 vector<int>     pointIdxSearch;
-vector<float>   pointSquaredDistance;      
+vector<float>   pointSquaredDistance;
 
 void RandomMapGenerate()
-{  
+{
    random_device rd;
    default_random_engine eng(rd());
-   
+
    uniform_real_distribution<double> rand_x = uniform_real_distribution<double>(_x_l, _x_h );
    uniform_real_distribution<double> rand_y = uniform_real_distribution<double>(_y_l, _y_h );
    uniform_real_distribution<double> rand_w = uniform_real_distribution<double>(_w_l, _w_h);
@@ -65,10 +84,11 @@ void RandomMapGenerate()
 
       x0   = rand_x_circle(eng);
       y0   = rand_y_circle(eng);
-      z0   = rand_h(eng) / 2.0;  
+      z0   = rand_h(eng) / 2.0;
       R    = rand_r_circle(eng);
 
-      if(sqrt( pow(x0-_init_x, 2) + pow(y0-_init_y, 2) ) < 2.0 ) 
+      // 取消距离圆点比较近
+      if(sqrt( pow(x0-_init_x, 2) + pow(y0-_init_y, 2) ) < 2.0 )
          continue;
 
       double a, b;
@@ -78,7 +98,7 @@ void RandomMapGenerate()
       double x, y, z;
       Vector3d pt3, pt3_rot;
       for(double theta = -M_PI; theta < M_PI; theta += 0.025)
-      {  
+      {
          x = a * cos(theta) * R;
          y = b * sin(theta) * R;
          z = 0;
@@ -105,7 +125,7 @@ void RandomMapGenerate()
       }
 
       Rot << cos(alpha) * cos(gama)  - cos(beta) * sin(alpha) * sin(gama), - cos(beta) * cos(gama) * sin(alpha) - cos(alpha) * sin(gama),   sin(alpha) * sin(beta),
-             cos(gama)  * sin(alpha) + cos(alpha) * cos(beta) * sin(gama),   cos(alpha) * cos(beta) * cos(gama) - sin(alpha) * sin(gama), - cos(alpha) * sin(beta),        
+             cos(gama)  * sin(alpha) + cos(alpha) * cos(beta) * sin(gama),   cos(alpha) * cos(beta) * cos(gama) - sin(alpha) * sin(gama), - cos(alpha) * sin(beta),
              sin(beta)  * sin(gama),                                         cos(gama) * sin(beta),                                         cos(beta);
 
       for(auto pt: circle_set)
@@ -122,28 +142,31 @@ void RandomMapGenerate()
 
    bool is_kdtree_empty = false;
    if(cloudMap.points.size() > 0)
-      kdtreeMap.setInputCloud( cloudMap.makeShared() ); 
+      kdtreeMap.setInputCloud( cloudMap.makeShared() );
    else
       is_kdtree_empty = true;
 
    // then, we put some pilar
    for(int i = 0; i < _obs_num; i ++)
    {
-      double x, y, w, h; 
+      double x, y, w, h;
       x    = rand_x(eng);
       y    = rand_y(eng);
       w    = rand_w(eng);
 
-      //if(sqrt( pow(x - _init_x, 2) + pow(y - _init_y, 2) ) < 2.0 ) 
-      if(sqrt( pow(x - _init_x, 2) + pow(y - _init_y, 2) ) < 0.8 ) 
+      // 同样距离起始点太近的放弃
+      //if(sqrt( pow(x - _init_x, 2) + pow(y - _init_y, 2) ) < 2.0 )
+      if(sqrt( pow(x - _init_x, 2) + pow(y - _init_y, 2) ) < 0.8 )
          continue;
-      
+
       pcl::PointXYZ searchPoint(x, y, (_h_l + _h_h)/2.0);
       pointIdxSearch.clear();
       pointSquaredDistance.clear();
-      
+
+      // false 代表pc 已经有值了，kdtree 已经给了点云指针， 之前的圆形障碍物
       if(is_kdtree_empty == false)
       {
+         // 第二个参数为1， 只找最近的点， 避免障碍物 距离太近
          if ( kdtreeMap.nearestKSearch (searchPoint, 1, pointIdxSearch, pointSquaredDistance) > 0 )
          {
             if(sqrt(pointSquaredDistance[0]) < 1.0 )
@@ -154,12 +177,13 @@ void RandomMapGenerate()
       x = floor(x/_resolution) * _resolution + _resolution / 2.0;
       y = floor(y/_resolution) * _resolution + _resolution / 2.0;
 
+      // 宽度， 方形，二位遍历， 高度随机
       int widNum = ceil(w/_resolution);
       for(int r = -widNum/2.0; r < widNum/2.0; r ++ )
       {
          for(int s = -widNum/2.0; s < widNum/2.0; s ++ )
          {
-            h    = rand_h(eng);  
+            h    = rand_h(eng);
             int heiNum = 2.0 * ceil(h/_resolution);
             for(int t = 0; t < heiNum; t ++ ){
                pt_random.x = x + (r+0.0) * _resolution + 0.001;
@@ -171,30 +195,33 @@ void RandomMapGenerate()
       }
    }
 
+   // 设置点云的header info
    cloudMap.width = cloudMap.points.size();
    cloudMap.height = 1;
    cloudMap.is_dense = true;
 
    _has_map = true;
-   
+
    pcl::toROSMsg(cloudMap, globalMap_pcd);
    globalMap_pcd.header.frame_id = "world";
 }
 
 void pubSensedPoints()
-{     
+{
    if( !_has_map ) return;
 
    _all_map_pub.publish(globalMap_pcd);
 }
 
-int main (int argc, char** argv) 
-{        
+int main (int argc, char** argv)
+{
    ros::init (argc, argv, "random_complex_scene");
    ros::NodeHandle n( "~" );
 
-   _all_map_pub   = n.advertise<sensor_msgs::PointCloud2>("global_map", 1);                      
+   _all_map_pub   = n.advertise<sensor_msgs::PointCloud2>("global_map", 1);
 
+
+   // 这是为了后面的搜索都是从起点出发的，所以选择在(0,0)附近没有障碍物
    n.param("init_state_x", _init_x,       0.0);
    n.param("init_state_y", _init_y,       0.0);
 
@@ -206,6 +233,8 @@ int main (int argc, char** argv)
    n.param("map/circle_num", _cir_num,  30);
    n.param("map/resolution", _resolution, 0.2);
 
+   // w - width
+   // h - height
    n.param("ObstacleShape/lower_rad", _w_l,   0.3);
    n.param("ObstacleShape/upper_rad", _w_h,   0.8);
    n.param("ObstacleShape/lower_hei", _h_l,   3.0);

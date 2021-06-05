@@ -26,14 +26,15 @@ backward::SignalHandling sh;
 
 // simulation param from launch file
 double _resolution, _inv_resolution, _cloud_margin;
-double _x_size, _y_size, _z_size;    
+double _x_size, _y_size, _z_size;
 
 // useful global variables
 bool _has_map   = false;
 
-Vector3d _start_pt;
-Vector3d _map_lower, _map_upper;
-int _max_x_id, _max_y_id, _max_z_id;
+Vector3d _start_pt;  // 0,0,0
+Vector3d _map_lower; // -25,-25,0   / 50,50,5
+Vector3d _map_upper; // 25,25,5     / 50,50,5
+int _max_x_id, _max_y_id, _max_z_id; // max_length / resolution
 
 // ros related
 ros::Subscriber _map_sub, _pts_sub;
@@ -42,7 +43,7 @@ ros::Publisher  _grid_path_vis_pub, _debug_nodes_vis_pub, _closed_nodes_vis_pub,
 gridPathFinder * _path_finder = new gridPathFinder();
 
 void rcvWaypointsCallback(const nav_msgs::Path & wp);
-void rcvPointCloudCallBack(const sensor_msgs::PointCloud2 & pointcloud_map);
+void rcvPointCloudCallBack(const sensor_msgs::PointCloud2 & pointcloud_map); // receve random_complex pointcloud2 map
 
 void visDebugNodes( vector<Vector3d> nodes );
 void visGridPath( vector<Vector3d> nodes, bool is_use_jps );
@@ -52,7 +53,7 @@ void visCloseNodeSequence( vector<Vector3d> nodes );
 void pathFinding(const Vector3d start_pt, const Vector3d target_pt);
 
 void rcvWaypointsCallback(const nav_msgs::Path & wp)
-{     
+{
     if( wp.poses[0].pose.position.z < 0.0 || _has_map == false )
         return;
 
@@ -61,27 +62,28 @@ void rcvWaypointsCallback(const nav_msgs::Path & wp)
                  wp.poses[0].pose.position.y,
                  wp.poses[0].pose.position.z;
 
-    ROS_INFO("[jps_node] receive the way-points");
+    ROS_INFO("[jps_node] receive the way-points");  // 只有1个点？  为了jps调试？
 }
 
 void rcvPointCloudCallBack(const sensor_msgs::PointCloud2 & pointcloud_map)
-{   
+{
     if(_has_map ) return;
+    // 仅仅回调一次
 
-    pcl::PointCloud<pcl::PointXYZ> cloud;
+    pcl::PointCloud<pcl::PointXYZ> cloud;  // 接收ros 消息
     pcl::PointCloud<pcl::PointXYZ> cloud_vis;
     sensor_msgs::PointCloud2 map_vis;
 
     pcl::fromROSMsg(pointcloud_map, cloud);
-    
+
     if( (int)cloud.points.size() == 0 ) return;
 
     pcl::PointXYZ pt, pt_inf;
-    int inf_step   = round(_cloud_margin * _inv_resolution);
-    int inf_step_z = max(1, inf_step / 2);
+    int inf_step   = round(_cloud_margin * _inv_resolution);  // _cloud_margin = 0 ??????
+    int inf_step_z = max(1, inf_step / 2); // inf_step_z = 1 ???
     for (int idx = 0; idx < (int)cloud.points.size(); idx++)
-    {    
-        pt = cloud.points[idx];        
+    {
+        pt = cloud.points[idx];
         for(int x = -inf_step ; x <= inf_step; x ++ )
         {
             for(int y = -inf_step ; y <= inf_step; y ++ )
@@ -134,20 +136,20 @@ int main(int argc, char** argv)
 
     nh.param("map/cloud_margin",  _cloud_margin, 0.0);
     nh.param("map/resolution",    _resolution,   0.2);
-    
+
     nh.param("map/x_size",        _x_size, 50.0);
     nh.param("map/y_size",        _y_size, 50.0);
     nh.param("map/z_size",        _z_size, 5.0 );
-    
+
     nh.param("planning/start_x",  _start_pt(0),  0.0);
     nh.param("planning/start_y",  _start_pt(1),  0.0);
     nh.param("planning/start_z",  _start_pt(2),  0.0);
 
     _map_lower << - _x_size/2.0, - _y_size/2.0,     0.0;
     _map_upper << + _x_size/2.0, + _y_size/2.0, _z_size;
-    
+
     _inv_resolution = 1.0 / _resolution;
-    
+
     _max_x_id = (int)(_x_size * _inv_resolution);
     _max_y_id = (int)(_y_size * _inv_resolution);
     _max_z_id = (int)(_z_size * _inv_resolution);
@@ -157,9 +159,9 @@ int main(int argc, char** argv)
 
     ros::Rate rate(100);
     bool status = ros::ok();
-    while(status) 
+    while(status)
     {
-        ros::spinOnce();      
+        ros::spinOnce();
         status = ros::ok();
         rate.sleep();
     }
@@ -169,11 +171,11 @@ int main(int argc, char** argv)
 }
 
 void visDebugNodes( vector<Vector3d> nodes )
-{   
-    visualization_msgs::Marker node_vis; 
+{
+    visualization_msgs::Marker node_vis;
     node_vis.header.frame_id = "world";
     node_vis.header.stamp = ros::Time::now();
-    
+
     node_vis.ns = "demo_node/debug_info";
 
     node_vis.type = visualization_msgs::Marker::CUBE_LIST;
@@ -209,11 +211,11 @@ void visDebugNodes( vector<Vector3d> nodes )
 }
 
 void visGridPath( vector<Vector3d> nodes, bool is_use_jps )
-{   
-    visualization_msgs::Marker node_vis; 
+{
+    visualization_msgs::Marker node_vis;
     node_vis.header.frame_id = "world";
     node_vis.header.stamp = ros::Time::now();
-    
+
     if(is_use_jps)
         node_vis.ns = "demo_node/jps_path";
     else
@@ -261,8 +263,8 @@ void visGridPath( vector<Vector3d> nodes, bool is_use_jps )
 }
 
 void visCloseNode( vector<Vector3d> nodes )
-{   
-    visualization_msgs::Marker node_vis; 
+{
+    visualization_msgs::Marker node_vis;
     node_vis.header.frame_id = "world";
     node_vis.header.stamp = ros::Time::now();
     node_vis.ns = "demo_node/closed_nodes";
@@ -298,8 +300,8 @@ void visCloseNode( vector<Vector3d> nodes )
 }
 
 void visOpenNode( vector<Vector3d> nodes )
-{   
-    visualization_msgs::Marker node_vis; 
+{
+    visualization_msgs::Marker node_vis;
     node_vis.header.frame_id = "world";
     node_vis.header.stamp = ros::Time::now();
     node_vis.ns = "demo_node/visited_nodes";
@@ -335,8 +337,8 @@ void visOpenNode( vector<Vector3d> nodes )
 }
 
 void visCloseNodeSequence( vector<Vector3d> nodes )
-{   
-    visualization_msgs::Marker node_vis; 
+{
+    visualization_msgs::Marker node_vis;
     node_vis.header.frame_id = "world";
     node_vis.header.stamp = ros::Time::now();
     node_vis.ns = "demo_node/animation_of_close_nodes";

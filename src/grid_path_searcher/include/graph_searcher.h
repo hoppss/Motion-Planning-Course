@@ -40,18 +40,18 @@ struct JPS3DNeib {
 };
 
 struct GridNode
-{     
+{
     int id;        // 1--> open set, -1 --> closed set
-    Eigen::Vector3d coord; 
+    Eigen::Vector3d coord;
     Eigen::Vector3i dir;   // direction of expanding
     Eigen::Vector3i index;
-	
+
     bool is_path;
-    double gScore, fScore;
+    double gScore, fScore;  // g is start->current; f_cost = g_cost + h
     GridNodePtr cameFrom;
     std::multimap<double, GridNodePtr>::iterator nodeMapIt;
 
-    GridNode(Eigen::Vector3i _index, Eigen::Vector3d _coord){  
+    GridNode(Eigen::Vector3i _index, Eigen::Vector3d _coord){
 		id = 0;
 		is_path = false;
 		index = _index;
@@ -80,25 +80,25 @@ class gridPathFinder
 		double resolution, inv_resolution;
 		double tie_breaker = 1.0 + 1.0 / 10000;
 
-		std::vector<GridNodePtr> expandedNodes;
+		std::vector<GridNodePtr> expandedNodes; // close list
 		std::vector<GridNodePtr> gridPath;
 		std::vector<GridNodePtr> endPtrList;
-		
+
 		int GLX_SIZE, GLY_SIZE, GLZ_SIZE;
 		int GLXYZ_SIZE, GLYZ_SIZE;
 		double gl_xl, gl_yl, gl_zl;
 		double gl_xu, gl_yu, gl_zu;
-	
+
 		Eigen::Vector3i goalIdx;
 
-		uint8_t * data;
+		uint8_t * data;  // 二维， 或者三维，保存地图数据
 
-		GridNodePtr *** GridNodeMap;
+		GridNodePtr *** GridNodeMap; // 第一层x, 第二层y, 第三层z
 		std::multimap<double, GridNodePtr> openSet;
 		JPS3DNeib * jn3d;
 
 		bool jump(const Eigen::Vector3i & curIdx, const Eigen::Vector3i & expDir, Eigen::Vector3i & neiIdx);
-		
+
 		inline void getJpsSucc(GridNodePtr currentPtr, std::vector<GridNodePtr> & neighborPtrSets, std::vector<double> & edgeCostSets, int num_iter);
 		inline void getSucc   (GridNodePtr currentPtr, std::vector<GridNodePtr> & neighborPtrSets, std::vector<double> & edgeCostSets);
 		inline bool hasForced(const Eigen::Vector3i & idx, const Eigen::Vector3i & dir);
@@ -113,7 +113,7 @@ class gridPathFinder
 
 	public:
 		std::vector<Eigen::Vector3d> debugNodes;
-		gridPathFinder( ){				
+		gridPathFinder( ){
     		jn3d = new JPS3DNeib();
 		};
 

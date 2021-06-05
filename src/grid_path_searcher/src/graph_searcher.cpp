@@ -4,7 +4,7 @@ using namespace std;
 using namespace Eigen;
 
 void gridPathFinder::initGridMap(double _resolution, Vector3d global_xyz_l, Vector3d global_xyz_u, int max_x_id, int max_y_id, int max_z_id)
-{   
+{
     gl_xl = global_xyz_l(0);
     gl_yl = global_xyz_l(1);
     gl_zl = global_xyz_l(2);
@@ -12,7 +12,7 @@ void gridPathFinder::initGridMap(double _resolution, Vector3d global_xyz_l, Vect
     gl_xu = global_xyz_u(0);
     gl_yu = global_xyz_u(1);
     gl_zu = global_xyz_u(2);
-    
+
     GLX_SIZE = max_x_id;
     GLY_SIZE = max_y_id;
     GLZ_SIZE = max_z_id;
@@ -20,11 +20,11 @@ void gridPathFinder::initGridMap(double _resolution, Vector3d global_xyz_l, Vect
     GLXYZ_SIZE = GLX_SIZE * GLYZ_SIZE;
 
     resolution = _resolution;
-    inv_resolution = 1.0 / _resolution;    
+    inv_resolution = 1.0 / _resolution;
 
     data = new uint8_t[GLXYZ_SIZE];
     memset(data, 0, GLXYZ_SIZE * sizeof(uint8_t));
-    
+
     GridNodeMap = new GridNodePtr ** [GLX_SIZE];
     for(int i = 0; i < GLX_SIZE; i++){
         GridNodeMap[i] = new GridNodePtr * [GLY_SIZE];
@@ -48,13 +48,13 @@ void gridPathFinder::resetGrid(GridNodePtr ptr)
 }
 
 void gridPathFinder::resetUsedGrids()
-{   
-    //ROS_WARN("expandedNodes size : %d", expandedNodes.size()); 
+{
+    //ROS_WARN("expandedNodes size : %d", expandedNodes.size());
     for(auto tmpPtr:expandedNodes)
         resetGrid(tmpPtr);
 
     GridNodePtr tmpPtr = NULL;
-    for(auto ptr:openSet){   
+    for(auto ptr:openSet){
         tmpPtr = ptr.second;
         resetGrid(tmpPtr);
     }
@@ -66,20 +66,20 @@ void gridPathFinder::resetUsedGrids()
 }
 
 void gridPathFinder::setObs(const double coord_x, const double coord_y, const double coord_z)
-{   
-    if( coord_x < gl_xl  || coord_y < gl_yl  || coord_z <  gl_zl || 
+{
+    if( coord_x < gl_xl  || coord_y < gl_yl  || coord_z <  gl_zl ||
         coord_x >= gl_xu || coord_y >= gl_yu || coord_z >= gl_zu )
         return;
 
     int idx_x = static_cast<int>( (coord_x - gl_xl) * inv_resolution);
     int idx_y = static_cast<int>( (coord_y - gl_yl) * inv_resolution);
-    int idx_z = static_cast<int>( (coord_z - gl_zl) * inv_resolution);      
+    int idx_z = static_cast<int>( (coord_z - gl_zl) * inv_resolution);
 
     data[idx_x * GLYZ_SIZE + idx_y * GLZ_SIZE + idx_z] = 1;
 }
 
 double gridPathFinder::getDiagHeu(GridNodePtr node1, GridNodePtr node2)
-{   
+{
     double dx = abs(node1->index(0) - node2->index(0));
     double dy = abs(node1->index(1) - node2->index(1));
     double dz = abs(node1->index(2) - node2->index(2));
@@ -103,7 +103,7 @@ double gridPathFinder::getDiagHeu(GridNodePtr node1, GridNodePtr node2)
 }
 
 double gridPathFinder::getManhHeu(GridNodePtr node1, GridNodePtr node2)
-{   
+{
     double dx = abs(node1->index(0) - node2->index(0));
     double dy = abs(node1->index(1) - node2->index(1));
     double dz = abs(node1->index(2) - node2->index(2));
@@ -112,7 +112,7 @@ double gridPathFinder::getManhHeu(GridNodePtr node1, GridNodePtr node2)
 }
 
 double gridPathFinder::getEuclHeu(GridNodePtr node1, GridNodePtr node2)
-{   
+{
     return (node2->index - node1->index).norm();
 }
 
@@ -123,11 +123,11 @@ double gridPathFinder::getHeu(GridNodePtr node1, GridNodePtr node2)
 }
 
 vector<GridNodePtr> gridPathFinder::retrievePath(GridNodePtr current)
-{   
+{
     vector<GridNodePtr> path;
     path.push_back(current);
 
-    while(current->cameFrom != NULL){   
+    while(current->cameFrom != NULL){
         current->is_path = true;
         current = current -> cameFrom;
         path.push_back(current);
@@ -139,11 +139,11 @@ vector<GridNodePtr> gridPathFinder::retrievePath(GridNodePtr current)
 }
 
 vector<Vector3d> gridPathFinder::getVisitedNodes()
-{   
+{
     vector<Vector3d> visited_nodes;
     for(int i = 0; i < GLX_SIZE; i++)
         for(int j = 0; j < GLY_SIZE; j++)
-            for(int k = 0; k < GLZ_SIZE; k++){   
+            for(int k = 0; k < GLZ_SIZE; k++){
                 if(GridNodeMap[i][j][k]->id != 0)
                 //if(GridNodeMap[i][j][k]->id == -1)
                     visited_nodes.push_back(GridNodeMap[i][j][k]->coord);
@@ -154,9 +154,9 @@ vector<Vector3d> gridPathFinder::getVisitedNodes()
 }
 
 vector<Vector3d> gridPathFinder::getCloseNodes()
-{   
+{
     vector<Vector3d> vec;
-    for(auto tmpPtr:expandedNodes){   
+    for(auto tmpPtr:expandedNodes){
         if( !tmpPtr->is_path )
             vec.push_back(tmpPtr->coord);
     }
@@ -164,8 +164,8 @@ vector<Vector3d> gridPathFinder::getCloseNodes()
     return vec;
 }
 
-vector<Vector3d> gridPathFinder::getPath() 
-{   
+vector<Vector3d> gridPathFinder::getPath()
+{
     vector<Vector3d> path;
 
     for(auto ptr: gridPath)
@@ -191,8 +191,8 @@ inline Vector3i gridPathFinder::coord2gridIndex(const Vector3d & pt) const
     Vector3i idx;
     idx <<  min( max( int( (pt(0) - gl_xl) * inv_resolution), 0), GLX_SIZE - 1),
             min( max( int( (pt(1) - gl_yl) * inv_resolution), 0), GLY_SIZE - 1),
-            min( max( int( (pt(2) - gl_zl) * inv_resolution), 0), GLZ_SIZE - 1);                  
-  
+            min( max( int( (pt(2) - gl_zl) * inv_resolution), 0), GLZ_SIZE - 1);
+
     return idx;
 }
 
@@ -211,20 +211,20 @@ inline bool gridPathFinder::isFree(const Eigen::Vector3i & index) const
     return isFree(index(0), index(1), index(2));
 }
 
-inline bool gridPathFinder::isOccupied(const int & idx_x, const int & idx_y, const int & idx_z) const 
+inline bool gridPathFinder::isOccupied(const int & idx_x, const int & idx_y, const int & idx_z) const
 {
-    return  (idx_x >= 0 && idx_x < GLX_SIZE && idx_y >= 0 && idx_y < GLY_SIZE && idx_z >= 0 && idx_z < GLZ_SIZE && 
+    return  (idx_x >= 0 && idx_x < GLX_SIZE && idx_y >= 0 && idx_y < GLY_SIZE && idx_z >= 0 && idx_z < GLZ_SIZE &&
             (data[idx_x * GLYZ_SIZE + idx_y * GLZ_SIZE + idx_z] == 1));
 }
 
-inline bool gridPathFinder::isFree(const int & idx_x, const int & idx_y, const int & idx_z) const 
+inline bool gridPathFinder::isFree(const int & idx_x, const int & idx_y, const int & idx_z) const
 {
-    return (idx_x >= 0 && idx_x < GLX_SIZE && idx_y >= 0 && idx_y < GLY_SIZE && idx_z >= 0 && idx_z < GLZ_SIZE && 
+    return (idx_x >= 0 && idx_x < GLX_SIZE && idx_y >= 0 && idx_y < GLY_SIZE && idx_z >= 0 && idx_z < GLZ_SIZE &&
            (data[idx_x * GLYZ_SIZE + idx_y * GLZ_SIZE + idx_z] < 1));
 }
 
 inline void gridPathFinder::getJpsSucc(GridNodePtr currentPtr, vector<GridNodePtr> & neighborPtrSets, vector<double> & edgeCostSets, int num_iter)
-{   
+{
     neighborPtrSets.clear();
     edgeCostSets.clear();
     const int norm1 = abs(currentPtr->dir(0)) + abs(currentPtr->dir(1)) + abs(currentPtr->dir(2));
@@ -241,21 +241,21 @@ inline void gridPathFinder::getJpsSucc(GridNodePtr currentPtr, vector<GridNodePt
             expandDir(0) = jn3d->ns[id][0][dev];
             expandDir(1) = jn3d->ns[id][1][dev];
             expandDir(2) = jn3d->ns[id][2][dev];
-            
-            if( !jump(currentPtr->index, expandDir, neighborIdx) )  
+
+            if( !jump(currentPtr->index, expandDir, neighborIdx) )
                 continue;
         }
         else {
             int nx = currentPtr->index(0) + jn3d->f1[id][0][dev - num_neib];
             int ny = currentPtr->index(1) + jn3d->f1[id][1][dev - num_neib];
             int nz = currentPtr->index(2) + jn3d->f1[id][2][dev - num_neib];
-            
+
             if( isOccupied(nx, ny, nz) ) {
                 expandDir(0) = jn3d->f2[id][0][dev - num_neib];
                 expandDir(1) = jn3d->f2[id][1][dev - num_neib];
                 expandDir(2) = jn3d->f2[id][2][dev - num_neib];
-                
-                if( !jump(currentPtr->index, expandDir, neighborIdx) ) 
+
+                if( !jump(currentPtr->index, expandDir, neighborIdx) )
                     continue;
             }
             else
@@ -267,28 +267,28 @@ inline void gridPathFinder::getJpsSucc(GridNodePtr currentPtr, vector<GridNodePt
 
         GridNodePtr nodePtr = GridNodeMap[neighborIdx(0)][neighborIdx(1)][neighborIdx(2)];
         nodePtr->dir = expandDir;
-        
+
         neighborPtrSets.push_back(nodePtr);
         edgeCostSets.push_back(
             sqrt(
             (neighborIdx(0) - currentPtr->index(0)) * (neighborIdx(0) - currentPtr->index(0)) +
             (neighborIdx(1) - currentPtr->index(1)) * (neighborIdx(1) - currentPtr->index(1)) +
-            (neighborIdx(2) - currentPtr->index(2)) * (neighborIdx(2) - currentPtr->index(2))   ) 
+            (neighborIdx(2) - currentPtr->index(2)) * (neighborIdx(2) - currentPtr->index(2))   )
             );
     }
 }
 
 inline void gridPathFinder::getSucc(GridNodePtr currentPtr, vector<GridNodePtr> & neighborPtrSets, vector<double> & edgeCostSets)
-{   
+{
     neighborPtrSets.clear();
     edgeCostSets.clear();
     Vector3i neighborIdx;
     for(int dx = -1; dx < 2; dx++){
         for(int dy = -1; dy < 2; dy++){
             for(int dz = -1; dz < 2; dz++){
-                
+
                 if( dx == 0 && dy == 0 && dz ==0 )
-                    continue; 
+                    continue;
 
                 neighborIdx(0) = (currentPtr -> index)(0) + dx;
                 neighborIdx(1) = (currentPtr -> index)(1) + dy;
@@ -308,8 +308,8 @@ inline void gridPathFinder::getSucc(GridNodePtr currentPtr, vector<GridNodePtr> 
 }
 
 void gridPathFinder::graphSearch(Vector3d start_pt, Vector3d end_pt, bool use_jps)
-{   
-    ros::Time time_1 = ros::Time::now();    
+{
+    ros::Time time_1 = ros::Time::now();
     debugNodes.clear();
 
     Vector3i start_idx = coord2gridIndex(start_pt);
@@ -341,7 +341,7 @@ void gridPathFinder::graphSearch(Vector3d start_pt, Vector3d end_pt, bool use_jp
     vector<double> edgeCostSets;
 
     // we only cover 3d case in this project.
-    while ( !openSet.empty() ){   
+    while ( !openSet.empty() ){
         num_iter ++;
         currentPtr = openSet.begin() -> second;
 
@@ -352,14 +352,14 @@ void gridPathFinder::graphSearch(Vector3d start_pt, Vector3d end_pt, bool use_jp
                 ROS_WARN("[JPS]{sucess} Time in JPS is %f ms, path cost if %f m", (time_2 - time_1).toSec() * 1000.0, currentPtr->gScore * resolution );
             else
                 ROS_WARN("[A*]{sucess}  Time in A*  is %f ms, path cost if %f m", (time_2 - time_1).toSec() * 1000.0, currentPtr->gScore * resolution );
-            
+
             gridPath = retrievePath(currentPtr);
             return;
-        }         
+        }
         openSet.erase(openSet.begin());
         currentPtr -> id = -1; //move current node from open set to closed set.
-        expandedNodes.push_back(currentPtr);
-        
+        expandedNodes.push_back(currentPtr); // close list
+
         if(!use_jps)
             getSucc(currentPtr, neighborPtrSets, edgeCostSets);
         else
@@ -370,21 +370,21 @@ void gridPathFinder::graphSearch(Vector3d start_pt, Vector3d end_pt, bool use_jp
             if( isOccupied(neighborPtr->index) || neighborPtr -> id == -1 )
                 continue;
 
-            double edge_cost = edgeCostSets[i];            
-            tentative_gScore = currentPtr -> gScore + edge_cost; 
+            double edge_cost = edgeCostSets[i];
+            tentative_gScore = currentPtr -> gScore + edge_cost;
 
             if(neighborPtr -> id != 1){ //discover a new node
                 neighborPtr -> id        = 1;
                 neighborPtr -> cameFrom  = currentPtr;
                 neighborPtr -> gScore    = tentative_gScore;
-                neighborPtr -> fScore    = neighborPtr -> gScore + getHeu(neighborPtr, endPtr); 
+                neighborPtr -> fScore    = neighborPtr -> gScore + getHeu(neighborPtr, endPtr);
                 neighborPtr -> nodeMapIt = openSet.insert( make_pair(neighborPtr->fScore, neighborPtr) ); //put neighbor in open set and record it.
                 continue;
             }
             else if(tentative_gScore <= neighborPtr-> gScore){ //in open set and need update
                 neighborPtr -> cameFrom = currentPtr;
                 neighborPtr -> gScore = tentative_gScore;
-                neighborPtr -> fScore = tentative_gScore + getHeu(neighborPtr, endPtr); 
+                neighborPtr -> fScore = tentative_gScore + getHeu(neighborPtr, endPtr);
                 openSet.erase(neighborPtr -> nodeMapIt);
                 neighborPtr -> nodeMapIt = openSet.insert( make_pair(neighborPtr->fScore, neighborPtr) ); //put neighbor in open set and record it.
 
@@ -392,9 +392,9 @@ void gridPathFinder::graphSearch(Vector3d start_pt, Vector3d end_pt, bool use_jp
                 for(int i = 0; i < 3; i++){
                     neighborPtr->dir(i) = neighborPtr->index(i) - currentPtr->index(i);
                     if( neighborPtr->dir(i) != 0)
-                        neighborPtr->dir(i) /= abs( neighborPtr->dir(i) );
+                        neighborPtr->dir(i) /= abs( neighborPtr->dir(i) ); // 归一化方向
                 }
-            }      
+            }
         }
     }
 
@@ -424,7 +424,7 @@ bool gridPathFinder::jump(const Vector3i & curIdx, const Vector3i & expDir, Vect
     for( int k = 0; k < num_neib - 1; ++k ){
         Vector3i newNeiIdx;
         Vector3i newDir(jn3d->ns[id][0][k], jn3d->ns[id][1][k], jn3d->ns[id][2][k]);
-        if( jump(neiIdx, newDir, newNeiIdx) ) 
+        if( jump(neiIdx, newDir, newNeiIdx) )
             return true;
     }
 
@@ -476,23 +476,23 @@ inline bool gridPathFinder::hasForced(const Vector3i & idx, const Vector3i & dir
 }
 
 constexpr int JPS3DNeib::nsz[4][2];
-JPS3DNeib::JPS3DNeib() 
+JPS3DNeib::JPS3DNeib()
 {
     int id = 0;
     for(int dz = -1; dz <= 1; ++ dz) {
         for(int dy = -1; dy <= 1; ++ dy) {
             for(int dx = -1; dx <= 1; ++ dx) {
                 int norm1 = abs(dx) + abs(dy) + abs(dz);
-            
+
                 for(int dev = 0; dev < nsz[norm1][0]; ++ dev)
                     Neib(dx,dy,dz,norm1,dev, ns[id][0][dev], ns[id][1][dev], ns[id][2][dev]);
-            
+
                 for(int dev = 0; dev < nsz[norm1][1]; ++ dev){
                     FNeib(dx,dy,dz,norm1,dev,
                     f1[id][0][dev],f1[id][1][dev], f1[id][2][dev],
                     f2[id][0][dev],f2[id][1][dev], f2[id][2][dev]);
                 }
-                
+
                 id ++;
             }
         }
