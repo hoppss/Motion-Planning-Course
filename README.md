@@ -1,4 +1,3 @@
-# Motion Planning Course
-Homework of Motion Planning for Mobile Robots [Course](https://www.shenlanxueyuan.com/course/188)
+git@github.com:Sunshinehualong/motion_planning_course.git
 
-Oct-Dec 2019 @Boyang Li
+https://github.com/KailinTong/Motion-Planning-for-Mobile-Robots/
